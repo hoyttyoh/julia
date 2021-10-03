@@ -181,7 +181,7 @@ bigval_t *big_objects_marked = NULL;
 // `to_finalize` should not have tagged pointers.
 arraylist_t finalizer_list_marked;
 arraylist_t to_finalize;
-int jl_gc_have_pending_finalizers = 0;
+_Atomic(int) jl_gc_have_pending_finalizers = 0;
 
 NOINLINE uintptr_t gc_get_stack_ptr(void)
 {
@@ -262,7 +262,9 @@ static void schedule_finalization(void *o, void *f) JL_NOTSAFEPOINT
 {
     arraylist_push(&to_finalize, o);
     arraylist_push(&to_finalize, f);
-    jl_gc_have_pending_finalizers = 1;
+    // doesn't need release, since we'll keep checking (on the reader) until we see the work and
+    // release our lock, and that will have a release barrier by then
+    jl_atomic_store_relaxed(&jl_gc_have_pending_finalizers, 1);
 }
 
 static void run_finalizer(jl_task_t *ct, jl_value_t *o, jl_value_t *ff)
@@ -388,7 +390,7 @@ static void run_finalizers(jl_task_t *ct)
     if (to_finalize.items == to_finalize._space) {
         copied_list.items = copied_list._space;
     }
-    jl_gc_have_pending_finalizers = 0;
+    jl_atomic_store_relaxed(&jl_gc_have_pending_finalizers, 0);
     arraylist_new(&to_finalize, 0);
     // This releases the finalizers lock.
     jl_gc_run_finalizers_in_list(ct, &copied_list);
@@ -453,7 +455,7 @@ JL_DLLEXPORT void jl_gc_enable_finalizers(jl_task_t *ct, int on)
         return;
     }
     ptls->finalizers_inhibited = new_val;
-    if (jl_gc_have_pending_finalizers) {
+    if (jl_atomic_load_relaxed(&jl_gc_have_pending_finalizers)) {
         jl_gc_run_pending_finalizers(ct);
     }
 }
