@@ -80,7 +80,7 @@ jl_sym_t *acquire_release_sym;
 jl_sym_t *sequentially_consistent_sym;
 
 
-static uint8_t flisp_system_image[] = {
+static const uint8_t flisp_system_image[] = {
 #include <julia_flisp.boot.inc>
 };
 
