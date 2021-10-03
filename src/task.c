@@ -61,23 +61,27 @@ static inline void tsan_destroy_ctx(jl_ptls_t ptls, jl_ucontext_t *ctx) {
     }
     ctx->tsan_state = NULL;
 }
+static inline void tsan_switch_to_ctx(jl_ucontext_t *ctx)  {
+    __tsan_switch_to_fiber(ctx->tsan_state, 0);
+}
+#ifdef COPY_STACKS
 static inline void tsan_destroy_copyctx(jl_ptls_t ptls, struct jl_stack_context_t *ctx) {
     if (ctx != &ptls->root_task->copy_stack_ctx) {
         __tsan_destroy_fiber(ctx->tsan_state);
     }
     ctx->tsan_state = NULL;
 }
-static inline void tsan_switch_to_ctx(jl_ucontext_t *ctx)  {
-    __tsan_switch_to_fiber(ctx->tsan_state, 0);
-}
 static inline void tsan_switch_to_copyctx(struct jl_stack_context_t *ctx)  {
     __tsan_switch_to_fiber(ctx->tsan_state, 0);
 }
+#endif
 #else
 static inline void tsan_destroy_ctx(jl_ptls_t ptls, jl_ucontext_t *ctx) {}
-static inline void tsan_destroy_copyctx(jl_ptls_t ptls, struct jl_stack_context_t *ctx) {}
 static inline void tsan_switch_to_ctx(jl_ucontext_t *ctx) {}
+#ifdef COPY_STACKS
+static inline void tsan_destroy_copyctx(jl_ptls_t ptls, struct jl_stack_context_t *ctx) {}
 static inline void tsan_switch_to_copyctx(struct jl_stack_context_t *ctx)  {}
+#endif
 #endif
 
 // empirically, jl_finish_task needs about 64k stack space to infer/run
@@ -372,9 +376,9 @@ static void ctx_switch(jl_task_t *lastt)
                 t->sticky = 1;
                 t->bufsz = 0;
                 if (always_copy_stacks)
-                    memcpy(&t->copy_stack_ctx, &ptls->copy_stack_ctx, sizeof(t->copy_stack_ctx) - sizeof(t->copy_stack_ctx.tsan_state));
+                    memcpy(&t->copy_stack_ctx.uc_mcontext, &ptls->copy_stack_ctx.uc_mcontext, sizeof(t->copy_stack_ctx.uc_mcontext));
                 else
-                    memcpy(&t->ctx, &ptls->base_ctx, sizeof(t->ctx) - sizeof(t->ctx.tsan_state));
+                    memcpy(&t->ctx.uc_mcontext, &ptls->base_ctx.uc_mcontext, sizeof(t->ctx.uc_mcontext));
 #else
                 jl_throw(jl_memory_exception);
 #endif
