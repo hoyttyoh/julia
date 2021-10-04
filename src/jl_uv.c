@@ -107,7 +107,7 @@ static void jl_uv_closeHandle(uv_handle_t *handle)
     if (handle->type != UV_FILE && handle->data) {
         jl_task_t *ct = jl_current_task;
         size_t last_age = ct->world_age;
-        ct->world_age = jl_world_counter;
+        ct->world_age = jl_atomic_load_acquire(&jl_world_counter);
         jl_uv_call_close_callback((jl_value_t*)handle->data);
         ct->world_age = last_age;
     }

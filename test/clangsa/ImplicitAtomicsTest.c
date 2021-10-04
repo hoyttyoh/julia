@@ -71,6 +71,12 @@ void hiddenAtomics(void) {
     y.x = 1; // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
     *y.px = 1; // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
 
+#ifndef __cplusplus // invalid C++ code
+    x = // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
+        py->x; // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
+    x = // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
+        *py->px; // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
+#endif
     py->x = 1; // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
     *py->px = 1; // expected-warning{{Implicit Atomic seq_cst synchronization}} expected-note{{Implicit Atomic seq_cst synchronization}}
 

@@ -276,7 +276,7 @@ static void run_finalizer(jl_task_t *ct, jl_value_t *o, jl_value_t *ff)
     jl_value_t *args[2] = {ff,o};
     JL_TRY {
         size_t last_age = ct->world_age;
-        ct->world_age = jl_world_counter;
+        ct->world_age = jl_atomic_load_acquire(&jl_world_counter);
         jl_apply(args, 2);
         ct->world_age = last_age;
     }
@@ -2647,7 +2647,6 @@ mark: {
                 objprofile_count(vt, bits == GC_OLD_MARKED, sizeof(jl_task_t));
             jl_task_t *ta = (jl_task_t*)new_obj;
             gc_scrub_record_task(ta);
-            void *stkbuf = ta->stkbuf;
             if (gc_cblist_task_scanner) {
                 export_gc_state(ptls, &sp);
                 int16_t tid = jl_atomic_load_relaxed(&ta->tid);
@@ -2657,6 +2656,7 @@ mark: {
                 import_gc_state(ptls, &sp);
             }
 #ifdef COPY_STACKS
+            void *stkbuf = ta->stkbuf;
             if (stkbuf && ta->copy_stack)
                 gc_setmark_buf_(ptls, stkbuf, bits, ta->bufsz);
 #endif
