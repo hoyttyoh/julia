@@ -55,32 +55,50 @@ static inline void sanitizer_finish_switch_fiber(void) {}
 #endif
 
 #if defined(_COMPILER_TSAN_ENABLED_)
-static inline void tsan_destroy_ctx(jl_ptls_t ptls, jl_ucontext_t *ctx) {
-    if (ctx != &ptls->root_task->ctx) {
-        __tsan_destroy_fiber(ctx->tsan_state);
-    }
-    ctx->tsan_state = NULL;
-}
-static inline void tsan_switch_to_ctx(jl_ucontext_t *ctx)  {
-    __tsan_switch_to_fiber(ctx->tsan_state, 0);
-}
+// must defined as macros, since the function containing them must not return before the longjmp
+#define tsan_destroy_ctx(_ptls, _ctx) do { \
+        jl_ucontext_t *_tsan_macro_ctx = (_ctx); \
+        if (_tsan_macro_ctx != &(_ptls)->root_task->ctx) { \
+            __tsan_destroy_fiber(_tsan_macro_ctx->tsan_state); \
+        } \
+        _tsan_macro_ctx->tsan_state = NULL; \
+    } while (0)
+#define tsan_switch_to_ctx(_ctx) do { \
+        jl_ucontext_t *_tsan_macro_ctx = (_ctx); \
+        __tsan_switch_to_fiber(_tsan_macro_ctx->tsan_state, 0); \
+    } while (0)
 #ifdef COPY_STACKS
-static inline void tsan_destroy_copyctx(jl_ptls_t ptls, struct jl_stack_context_t *ctx) {
-    if (ctx != &ptls->root_task->copy_stack_ctx) {
-        __tsan_destroy_fiber(ctx->tsan_state);
-    }
-    ctx->tsan_state = NULL;
-}
-static inline void tsan_switch_to_copyctx(struct jl_stack_context_t *ctx)  {
-    __tsan_switch_to_fiber(ctx->tsan_state, 0);
-}
+#define tsan_destroy_copyctx(_ptls, _ctx) do { \
+        struct jl_stack_context_t *_tsan_macro_ctx = (_ctx); \
+        if (_tsan_macro_ctx != &(_ptls)->root_task->copy_stack_ctx) { \
+            __tsan_destroy_fiber(_tsan_macro_ctx->tsan_state); \
+        } \
+        _tsan_macro_ctx->tsan_state = NULL; \
+    } while (0)
+#define tsan_switch_to_copyctx(_ctx) do { \
+        struct jl_stack_context_t *_tsan_macro_ctx = (_ctx); \
+        __tsan_switch_to_fiber(_tsan_macro_ctx->tsan_state, 0); \
+    } while (0)
 #endif
 #else
-static inline void tsan_destroy_ctx(jl_ptls_t ptls, jl_ucontext_t *ctx) {}
-static inline void tsan_switch_to_ctx(jl_ucontext_t *ctx) {}
+// just do minimal type-checking on the arguments
+#define tsan_destroy_ctx(_ptls, _ctx) do { \
+        jl_ucontext_t *_tsan_macro_ctx = (_ctx); \
+        (void)_tsan_macro_ctx; \
+    } while (0)
+#define tsan_switch_to_ctx(_ctx) do { \
+        jl_ucontext_t *_tsan_macro_ctx = (_ctx); \
+        (void)_tsan_macro_ctx; \
+    } while (0)
 #ifdef COPY_STACKS
-static inline void tsan_destroy_copyctx(jl_ptls_t ptls, struct jl_stack_context_t *ctx) {}
-static inline void tsan_switch_to_copyctx(struct jl_stack_context_t *ctx)  {}
+#define tsan_destroy_copyctx(_ptls, _ctx) do { \
+        struct jl_stack_context_t *_tsan_macro_ctx = (_ctx); \
+        (void)_tsan_macro_ctx; \
+    } while (0)
+#define tsan_switch_to_copyctx(_ctx) do { \
+        struct jl_stack_context_t *_tsan_macro_ctx = (_ctx); \
+        (void)_tsan_macro_ctx; \
+    } while (0)
 #endif
 #endif
 
